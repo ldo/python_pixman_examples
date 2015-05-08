@@ -1,0 +1,15 @@
+Here are some examples of the use of my
+[Python binding](https://github.com/ldo/python_pixman) for the Pixman
+pixel-manipulation library. You will need to have both that and
+[Qahirah](https://github.com/ldo/qahirah), my Python binding for Cairo
+graphics, installed before you can run these.
+
+Each example script generates its output to a PNG file with the same
+basename as the script. Thus, to run a script *script* and see its
+output, you could do something like
+
+> ./*script* && display *script*.png
+
+Lawrence D'Oliveiro <ldo@geek-central.gen.nz>
+2015 May 9
+
