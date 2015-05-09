@@ -171,7 +171,7 @@ g.show_text(title)
 col = 0
 row = 0
 for i in range(len(filters)) :
-    filter_name, filter_func = filters[i]
+    filter_name, filter_obj = filters[i]
     sys.stderr.write("doing filter %d/%d: %s..." % (i + 1, len(filters), filter_name))
     sys.stderr.flush()
     dest_rect = \
@@ -186,7 +186,7 @@ for i in range(len(filters)) :
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
-    draw_filtered(g, demo_image, filter_func, PIXMAN.REPEAT_PAD, qah.Matrix.identity())
+    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, qah.Matrix.identity())
     text_extents = g.text_extents(filter_name)
     g.move_to \
       ((
