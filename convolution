@@ -111,18 +111,35 @@ demo_image = qah.ImageSurface.create \
     format = CAIRO.FORMAT_ARGB32,
     dimensions = (256, 256)
   )
-(qah.Context.create(demo_image)
-    .set_matrix
-      (
-        qah.Rect.from_dimensions((1, 1)).transform_to(qah.Rect.from_dimensions(demo_image.dimensions))
-      )
-    .set_source_colour(qah.Colour.grey(0, 1))
-    .set_operator(CAIRO.OPERATOR_SOURCE)
-    .paint()
-    .set_source_colour(qah.Colour.grey(1, 1))
-    .rectangle(qah.Rect(.25, .25, .5, .5))
-    .fill()
-)
+g = \
+    (qah.Context.create(demo_image)
+        .set_matrix
+          (
+            qah.Rect.from_dimensions((1, 1))
+                .transform_to(qah.Rect.from_dimensions(demo_image.dimensions))
+          )
+        .set_source_colour(qah.Colour.grey(0, 1))
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .paint()
+        .set_source_colour(qah.Colour.grey(1, 1))
+    )
+nr_dirns = 6
+for i in range(nr_dirns) :
+    (g
+        .save()
+        .transform
+            (
+                qah.Matrix.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
+            *
+                qah.Matrix.translate(qah.Vector(1, 1) * 0.65)
+            *
+                qah.Matrix.scale(qah.Vector(1, 1) / 8)
+            )
+        .rectangle(qah.Rect(0, 0, 1, 1))
+        .fill()
+        .restore()
+    )
+#end for
 
 nr_cols = math.ceil(math.sqrt(len(filters)))
 nr_rows = math.ceil(len(filters) / nr_cols)
