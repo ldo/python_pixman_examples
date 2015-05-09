@@ -1,0 +1,135 @@
+#!/usr/bin/python3
+#+
+# Pixman example: demonstration of the conjoint-over operator,
+# as described at <http://marc.info/?l=xfree-render&m=99792000027857&w=2>,
+# to act as a translucent brush, and comparison with other related operators.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import math
+import qahirah as qah
+from qahirah import \
+    CAIRO, \
+    Context, \
+    ImageSurface, \
+    Matrix
+import pixman
+from pixman import \
+    PIXMAN, \
+    Colour, \
+    Image, \
+    Point, \
+    Rect
+Pt = qah.Path.Point
+
+ops = (PIXMAN.OP_OVER, PIXMAN.OP_DISJOINT_OVER, PIXMAN.OP_CONJOINT_OVER)
+  # the operators to compare
+pen_colour = Colour.from_hsva((0.55, 1, 0.5, 0.4))
+  # set alpha less than 0.5 so it takes 3 layers to go opaque
+bg_colour = Colour.from_hsva((0.15, 0.3, 0.7, 0.7))
+  # effect seems to work best if background is not too transparent
+pen_size = 16
+figure_size = Point(256, 256)
+margin = Point(16, 0) # only horizontal margin needed
+curve = qah.Path \
+  (
+    [
+        qah.Path.Segment
+          (
+            points =
+                [
+                    Pt((-1, -1), False),
+                    Pt((-0.9, -0.5), True),
+                    Pt((-0.1, 0.5), True),
+                    Pt((0, 1), False),
+                    Pt((0.1, 0.5), True),
+                    Pt((0.9, -0.5), True),
+                    Pt((1, -1), False),
+                ],
+            closed = False,
+          )
+    ]
+  )
+combined = ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = (figure_size + margin) * Point(len(ops), 1) - margin
+  )
+dpix = ImageSurface.create(CAIRO.FORMAT_ARGB32, figure_size)
+spix = dpix.create_like()
+dest_rect = qah.Rect.from_dimensions(figure_size)
+for op in ops :
+    flip = -1
+    (Context.create(dpix)
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .set_source_colour(bg_colour)
+        .paint()
+        .set_source_colour(pen_colour.replace_alpha(1))
+          # opaque version of pen colour for comparison
+        .rectangle(qah.Rect.from_dimensions(figure_size).inset(Point(1, 1) * pen_size / 2))
+        .set_line_width(pen_size)
+        .stroke()
+    )
+    for pow in range(3) :
+        # draw multiple copies of curve at different scalings to produce different
+        # numbers of layers at crossings
+        g = \
+            (Context.create(spix)
+                .translate(figure_size / 2)
+                .set_operator(CAIRO.OPERATOR_SOURCE)
+                .set_source_colour(Colour.grey(0, 0))
+                .paint()
+            )
+        g.source_colour = pen_colour
+        g.line_width = pen_size
+        freq = 1 << pow
+        flip = - flip
+        for i in range(freq) :
+            (g.new_path()
+                .append_path
+                  (
+                    path = curve,
+                    matrix =
+                            Matrix.scale(96)
+                        *
+                            Matrix.translate
+                              (
+                                (
+                                    (lambda : 0, lambda : 2 * i / freq - 0.5)[freq > 1](),
+                                    0
+                                )
+                              )
+                        *
+                            Matrix.scale((1 / freq, flip))
+                  )
+                .stroke()
+            )
+        #end for
+        pixman.image_composite \
+          (
+            op = op,
+            src = pixman.Image.create_from_cairo_surface(spix),
+            mask = None,
+            dest = pixman.Image.create_from_cairo_surface(dpix),
+            src_pos = (0, 0),
+            mask_pos = None,
+            dest_pos = (0, 0),
+            dimensions = figure_size
+          )
+        dpix.mark_dirty()
+    #end for
+    (Context.create(combined)
+        .set_source_surface(dpix, dest_rect.topleft)
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .rectangle(dest_rect)
+        .fill()
+    )
+    dest_rect += (figure_size + margin) * Point(1, 0)
+#end for
+combined.write_to_png("%s.png" % os.path.basename(sys.argv[0]))
