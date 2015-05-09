@@ -1,0 +1,186 @@
+#!/usr/bin/python3
+#+
+# Pixman example: demonstration of various convolution filters.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import math
+import qahirah as qah
+from qahirah import \
+    CAIRO
+import pixman
+from pixman import \
+    PIXMAN
+
+#+
+# Miscellaneous useful stuff
+#-
+
+def draw_filtered(g, surf, filter, matrix) :
+    "draws the qahirah.ImageSurface surf into the qahirah.Context g, applying" \
+    " the pixman.Filter filter and the qahirah.Matrix matrix."
+    temp = surf.create_like()
+    pixman.image_composite \
+      (
+        op = PIXMAN.OP_SRC,
+        src = pixman.Image.create_from_cairo_surface(surf).set_filter(filter),
+        mask = None,
+        dest = pixman.Image.create_from_cairo_surface(temp),
+        src_pos = (0, 0),
+        mask_pos = None,
+        dest_pos = (0, 0),
+        dimensions = surf.dimensions
+      )
+    temp.mark_dirty()
+    (g
+        .save()
+        .transform(matrix)
+        .rectangle(qah.Rect.from_dimensions(surf.dimensions))
+        .clip()
+        .set_source(qah.Pattern.create_for_surface(temp))
+        .paint()
+        .restore()
+    )
+#end draw_filtered
+
+#+
+# Useful filter functions
+#-
+
+def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak = True) :
+    "constructs a Gaussian blur filter. At least, I think this is a Gaussian blur." \
+    " limit is the maximum radius in pixels, and radius is the fraction of limit at" \
+    " which the coefficients fall off to exp(-2)."
+    return \
+        pixman.Filter.create_convolution_from_function \
+          (
+            func = lambda x, y : math.exp(- (x * x + y * y) / radius),
+            radius = limit,
+            gain = gain,
+            peak = peak,
+            clip_peak = clip_peak
+          )
+#end make_gaussian_filter
+
+def make_bokeh_filter(radius, nr_points, power, gain, peak, clip_peak) :
+    "constructs a blur filter with a “bokeh” (star-shape halo) effect. nr_points" \
+    " is the number of points on each star, while power defines the sharpness" \
+    " of the points."
+
+    def func(x, y) :
+        angle = math.atan2(y, x) / qah.circle * nr_points * math.pi
+        return \
+            math.exp(- x * x - y * y) * abs(math.sin(angle)) ** power
+    #end func
+
+    return \
+        pixman.Filter.create_convolution_from_function \
+          (
+            func = func,
+            radius = (radius, radius),
+            gain = gain,
+            peak = peak,
+            clip_peak = clip_peak
+          )
+#end make_bokeh_filter
+
+#+
+# Mainline
+#-
+
+filters = \
+    ( # tuple of (name, filter) tuples
+        ("Gaussian Blur", make_gaussian_filter((5, 25))),
+        ("Halo", make_gaussian_filter((15, 15), gain = 2, peak = 1, clip_peak = False)),
+        ("Hex Bokeh",
+            make_bokeh_filter
+              (
+                radius = 15, nr_points = 6, power = 20, gain = 2, peak = 1, clip_peak = False
+              )
+        ),
+    )
+
+demo_image = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = (256, 256)
+  )
+(qah.Context.create(demo_image)
+    .set_matrix
+      (
+        qah.Rect.from_dimensions((1, 1)).transform_to(qah.Rect.from_dimensions(demo_image.dimensions))
+      )
+    .set_source_colour(qah.Colour.grey(0, 1))
+    .set_operator(CAIRO.OPERATOR_SOURCE)
+    .paint()
+    .set_source_colour(qah.Colour.grey(1, 1))
+    .rectangle(qah.Rect(.25, .25, .5, .5))
+    .fill()
+)
+
+nr_cols = math.ceil(math.sqrt(len(filters)))
+nr_rows = math.ceil(len(filters) / nr_cols)
+margin = qah.Vector(10, 10)
+top_extra = 40
+draw_bounds = qah.Rect.from_dimensions(demo_image.dimensions)
+pix = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = qah.Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin) + margin + qah.Vector(0, top_extra)
+  )
+g = qah.Context.create(pix)
+text_colour = qah.Colour.grey(0, 1)
+g.select_font_face("sans-serif", CAIRO.FONT_SLANT_NORMAL, CAIRO.FONT_WEIGHT_BOLD)
+g.set_font_size(24)
+title = "Pixman Convolution Filters"
+text_extents = g.text_extents(title)
+g.move_to \
+  ((
+    (pix.width - text_extents.width) / 2,
+    text_extents.height + text_extents.y_bearing + top_extra / 2
+  ))
+g.source_colour = text_colour
+g.show_text(title)
+
+col = 0
+row = 0
+for i in range(len(filters)) :
+    filter_name, filter_func = filters[i]
+    sys.stderr.write("doing filter %d/%d: %s..." % (i + 1, len(filters), filter_name))
+    sys.stderr.flush()
+    dest_rect = \
+        (
+            draw_bounds
+        +
+            qah.Vector(col, row) * (draw_bounds.dimensions + margin)
+        +
+            margin
+        +
+            qah.Vector(0, top_extra)
+        )
+    g.matrix = draw_bounds.transform_to(dest_rect)
+    g.operator = CAIRO.OPERATOR_SOURCE
+    draw_filtered(g, demo_image, filter_func, qah.Matrix.identity())
+    text_extents = g.text_extents(filter_name)
+    g.move_to \
+      ((
+        draw_bounds.middle.x - text_extents.width / 2,
+        draw_bounds.botright.y + text_extents.y_bearing + margin.y / 3
+      ))
+    g.operator = CAIRO.OPERATOR_XOR
+    g.source_colour = text_colour
+    g.show_text(filter_name)
+    col += 1
+    if col == nr_cols :
+        col = 0
+        row += 1
+    #end if
+    sys.stderr.write(" done.\n")
+#end for
+pix.write_to_png("%s.png" % os.path.basename(sys.argv[0]))
