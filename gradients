@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+#+
+# Pixman example: gradients.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import qahirah as qah
+from qahirah import \
+    CAIRO
+import pixman
+from pixman import \
+    PIXMAN, \
+    Colour, \
+    GradientStop, \
+    Image, \
+    Point
+
+gradient_stops = \
+    (
+        GradientStop(0.0, Colour.from_hsva((0, 0.7, 0.5))),
+        GradientStop(0.5, Colour.from_hsva((0.3, 0.7, 1.0))),
+        GradientStop(1.0, Colour.from_hsva((0.5, 0.7, 0.5))),
+    )
+figure_size = Point(1, 1) * 128
+images = \
+    ( # various things to try
+        Image.create_solid_fill(Colour.from_hsva((0.4, 0.7, 1.0))),
+        Image.create_linear_gradient
+          (
+            p1 = Point(0, 0),
+            p2 = figure_size,
+            stops = gradient_stops
+          ),
+        Image.create_radial_gradient
+          (
+            inner = figure_size / 2,
+            outer = figure_size / 2,
+            inner_radius = 0,
+            outer_radius = figure_size.x / 2,
+            stops = gradient_stops
+          ),
+        Image.create_radial_gradient
+          (
+            inner = figure_size / 2,
+            outer = figure_size,
+            inner_radius = figure_size.x / 2,
+            outer_radius = figure_size.x / 2,
+            stops = gradient_stops
+          ),
+        Image.create_conical_gradient
+          (
+            centre = figure_size / 2,
+            angle = 75 * qah.deg,
+            stops = gradient_stops
+          ),
+    )
+margin = Point(16, 0) # only horizontal margin needed
+
+pat = qah.ImageSurface.create(CAIRO.FORMAT_ARGB32, figure_size)
+dest = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = (figure_size + margin) * Point(len(images), 1) - margin
+  )
+dest_rect = qah.Rect.from_dimensions(figure_size)
+g = qah.Context.create(dest)
+for src in images :
+    pixman.image_composite \
+      (
+        op = PIXMAN.OP_SRC,
+        src = src,
+        mask = None,
+        dest = Image.create_from_cairo_surface(pat),
+        src_pos = (0, 0),
+        mask_pos = None,
+        dest_pos = (0, 0),
+        dimensions = figure_size,
+      )
+    pat.mark_dirty()
+    (g
+        .set_source_surface(pat, dest_rect.topleft)
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .rectangle(dest_rect)
+        .fill()
+    )
+    dest_rect += (figure_size + margin) * Point(1, 0)
+#end for
+dest.write_to_png("%s.png" % os.path.basename(sys.argv[0]))
