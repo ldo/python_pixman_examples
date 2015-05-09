@@ -22,14 +22,15 @@ from pixman import \
 # Miscellaneous useful stuff
 #-
 
-def draw_filtered(g, surf, filter, matrix) :
+def draw_filtered(g, surf, filter, repeat, matrix) :
     "draws the qahirah.ImageSurface surf into the qahirah.Context g, applying" \
-    " the pixman.Filter filter and the qahirah.Matrix matrix."
+    " the pixman.Filter filter, the specified PIXMAN.REPEAT_xxx repeat setting," \
+    " and the qahirah.Matrix matrix."
     temp = surf.create_like()
     pixman.image_composite \
       (
         op = PIXMAN.OP_SRC,
-        src = pixman.Image.create_from_cairo_surface(surf).set_filter(filter),
+        src = pixman.Image.create_from_cairo_surface(surf).set_filter(filter).set_repeat(repeat),
         mask = None,
         dest = pixman.Image.create_from_cairo_surface(temp),
         src_pos = (0, 0),
@@ -185,7 +186,7 @@ for i in range(len(filters)) :
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
-    draw_filtered(g, demo_image, filter_func, qah.Matrix.identity())
+    draw_filtered(g, demo_image, filter_func, PIXMAN.REPEAT_PAD, qah.Matrix.identity())
     text_extents = g.text_extents(filter_name)
     g.move_to \
       ((
