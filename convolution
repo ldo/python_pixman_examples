@@ -96,8 +96,10 @@ def make_bokeh_filter(radius, nr_points, power, gain, peak, clip_peak) :
 
 filters = \
     ( # tuple of (name, filter) tuples
-        ("Gaussian Blur", make_gaussian_filter((5, 25))),
-        ("Halo", make_gaussian_filter((15, 15), gain = 2, peak = 1, clip_peak = False)),
+        ("Vertical Blur", make_gaussian_filter((5, 25))),
+        ("Horizontal Blur", make_gaussian_filter((25, 5))),
+        ("Uniform Blur", make_gaussian_filter((25, 25))),
+        ("Halo", make_gaussian_filter((25, 25), gain = 2, peak = 1, clip_peak = False)),
         ("Hex Bokeh",
             make_bokeh_filter
               (
