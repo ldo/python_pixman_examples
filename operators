@@ -23,7 +23,6 @@ import pixman
 from pixman import \
     PIXMAN, \
     Colour, \
-    Image, \
     Point, \
     Rect
 
@@ -171,7 +170,7 @@ g.show_text(title)
 row = 0
 col = 0
 g.line_width = 2
-spix = Image.create_bits \
+spix = pixman.Image.create_bits \
   (
     format = pixman.cairo_to_pixman_format[CAIRO.FORMAT_ARGB32],
     dimensions = draw_bounds.dimensions
@@ -199,7 +198,14 @@ for op_name in operator_names :
         .set_source_colour(Colour.grey(0, 0))
         .paint()
         .set_source(rect_2_pattern)
-        .rectangle(Rect.from_dimensions(Point(minor_dim, major_dim)) + Point(major_dim - minor_dim, 0) + margin)
+        .rectangle
+          (
+                Rect.from_dimensions(Point(minor_dim, major_dim))
+            +
+                Point(major_dim - minor_dim, 0)
+            +
+                margin
+          )
         .fill()
     )
     operator = getattr(PIXMAN, "OP_" + op_name.upper())
@@ -237,7 +243,6 @@ for op_name in operator_names :
         draw_bounds.middle.x - text_extents.width / 2,
         major_dim + text_extents.y_bearing + text_height * 2
       ))
-    g.operator = CAIRO.OPERATOR_SOURCE
     g.source_colour = text_colour
     g.show_text(op_name)
     if operator in unbounded :
