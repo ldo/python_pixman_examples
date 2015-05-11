@@ -176,6 +176,14 @@ spix = pixman.Image.create_bits \
     dimensions = draw_bounds.dimensions
   )
 dpix = spix.create_like()
+(Context.create(spix.create_cairo_surface())
+    .set_operator(CAIRO.OPERATOR_SOURCE)
+    .set_source_colour(Colour.grey(0, 0))
+    .paint()
+    .set_source(rect_1_pattern)
+    .rectangle(Rect.from_dimensions(Point(major_dim, minor_dim)) + margin)
+    .fill()
+)
 for op_name in operator_names :
     dest_rect = \
         (
@@ -185,14 +193,6 @@ for op_name in operator_names :
         +
             Point(0, top_extra)
         )
-    (Context.create(spix.create_cairo_surface())
-        .set_operator(CAIRO.OPERATOR_SOURCE)
-        .set_source_colour(Colour.grey(0, 0))
-        .paint()
-        .set_source(rect_1_pattern)
-        .rectangle(Rect.from_dimensions(Point(major_dim, minor_dim)) + margin)
-        .fill()
-    )
     (Context.create(dpix.create_cairo_surface())
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .set_source_colour(Colour.grey(0, 0))
