@@ -70,7 +70,7 @@ for op in ops :
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .set_source_colour(bg_colour)
         .paint()
-        .set_source_colour(pen_colour.replace_alpha(1))
+        .set_source_colour(pen_colour.replace_rgba(a = 1))
           # opaque version of pen colour for comparison
         .rectangle(qah.Rect.from_dimensions(figure_size).inset(Point(1, 1) * pen_size / 2))
         .set_line_width(pen_size)
