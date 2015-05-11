@@ -1,0 +1,254 @@
+#!/usr/bin/python3
+#+
+# Demo of Pixman operators, reworking of Cairo version from
+# <https://github.com/ldo/qahirah_examples/blob/master/operators>.
+# For an explanation of the difference between disjoint and conjoint
+# operators, see <http://marc.info/?l=xfree-render&m=99792000027857&w=2>,
+# and the Pixman source file pixman/pixman-combine32.c.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import math
+import qahirah as qah
+from qahirah import \
+    CAIRO, \
+    Context
+import pixman
+from pixman import \
+    PIXMAN, \
+    Colour, \
+    Image, \
+    Point, \
+    Rect
+
+operator_names = \
+    ( # differ only in case from PIXMAN.OP_xxx names
+        "clear",
+        "src",
+        "dst",
+        "over",
+        "over_reverse",
+        "in",
+        "in_reverse",
+        "out",
+        "out_reverse",
+        "atop",
+        "atop_reverse",
+        "xor",
+        "add",
+        "saturate",
+        "disjoint_clear",
+        "disjoint_src",
+        "disjoint_dst",
+        "disjoint_over",
+        "disjoint_over_reverse",
+        "disjoint_in",
+        "disjoint_in_reverse",
+        "disjoint_out",
+        "disjoint_out_reverse",
+        "disjoint_atop",
+        "disjoint_atop_reverse",
+        "disjoint_xor",
+
+        "conjoint_clear",
+        "conjoint_src",
+        "conjoint_dst",
+        "conjoint_over",
+        "conjoint_over_reverse",
+        "conjoint_in",
+        "conjoint_in_reverse",
+        "conjoint_out",
+        "conjoint_out_reverse",
+        "conjoint_atop",
+        "conjoint_atop_reverse",
+        "conjoint_xor",
+
+        "multiply",
+        "screen",
+        "overlay",
+        "darken",
+        "lighten",
+        "colour_dodge",
+        "colour_burn",
+        "hard_light",
+        "soft_light",
+        "difference",
+        "exclusion",
+        "HSL_hue",
+        "HSL_saturation",
+        "HSL_colour",
+        "HSL_luminosity",
+    )
+unbounded = \
+    {
+        PIXMAN.OP_IN,
+        PIXMAN.OP_OUT,
+        PIXMAN.OP_IN_REVERSE,
+        PIXMAN.OP_ATOP_REVERSE,
+      # any others?
+    }
+
+def complement(colour) :
+    "returns the complement of a Colour."
+    return \
+        colour.combine \
+          (
+            other = Colour.grey(1), # ignored
+            rgb_func = lambda ac, aa, bc, ba : 1 - ac,
+            alpha_func = lambda aa, ba : aa
+          )
+#end complement
+
+#+
+# Mainline
+#-
+
+nr_cols = math.ceil(math.sqrt(len(operator_names)))
+nr_rows = math.ceil(len(operator_names) / nr_cols)
+
+major_dim = 150
+minor_dim = 100
+rect_1_colour = Colour.from_rgba((0.7, 0, 0, 0.8))
+rect_2_colour = Colour.from_rgba((0, 0, 0.9, 0.4))
+
+rect_1_pattern = \
+    qah.Pattern.create_linear \
+      (
+        p0 = (0, 0),
+        p1 = (major_dim, 0),
+        colour_stops =
+            (
+                (0, rect_1_colour),
+                (1, complement(rect_1_colour)),
+            )
+      )
+rect_2_pattern = \
+    qah.Pattern.create_linear \
+      (
+        p0 = (0, 0),
+        p1 = (0, major_dim),
+        colour_stops =
+            (
+                (0, rect_2_colour),
+                (1, complement(rect_2_colour)),
+            )
+      )
+margin = Point(10, 10)
+top_extra = 40
+font_size = 18
+g = Context.create_for_dummy()
+g.select_font_face("sans-serif", CAIRO.FONT_SLANT_NORMAL, CAIRO.FONT_WEIGHT_BOLD)
+g.set_font_size(font_size)
+use_font = g.scaled_font
+text_height = g.font_extents.height
+draw_bounds = Rect.from_dimensions(Point(major_dim, major_dim) + 2 * margin + Point(0, round(text_height)))
+cpix = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = Point(nr_cols, nr_rows) * draw_bounds.dimensions + margin + Point(0, top_extra)
+  )
+g = Context.create(cpix)
+g.operator = CAIRO.OPERATOR_SOURCE
+g.source_colour = Colour.grey(0, 0)
+text_colour = Colour.grey(0, 1)
+g.paint()
+g.scaled_font = use_font
+title = "Pixman Drawing Operators"
+text_extents = g.text_extents(title)
+g.move_to \
+  ((
+    (cpix.width - text_extents.width) / 2,
+    text_extents.height + text_extents.y_bearing + top_extra / 2
+  ))
+g.source_colour = text_colour
+g.show_text(title)
+row = 0
+col = 0
+g.line_width = 2
+spix = Image.create_bits \
+  (
+    format = pixman.cairo_to_pixman_format[CAIRO.FORMAT_ARGB32],
+    dimensions = draw_bounds.dimensions
+  )
+dpix = spix.create_like()
+for op_name in operator_names :
+    dest_rect = \
+        (
+            draw_bounds
+        +
+            Point(col, row) * draw_bounds.dimensions
+        +
+            Point(0, top_extra)
+        )
+    (Context.create(spix.create_cairo_surface())
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .set_source_colour(Colour.grey(0, 0))
+        .paint()
+        .set_source(rect_1_pattern)
+        .rectangle(Rect.from_dimensions(Point(major_dim, minor_dim)) + margin)
+        .fill()
+    )
+    (Context.create(dpix.create_cairo_surface())
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .set_source_colour(Colour.grey(0, 0))
+        .paint()
+        .set_source(rect_2_pattern)
+        .rectangle(Rect.from_dimensions(Point(minor_dim, major_dim)) + Point(major_dim - minor_dim, 0) + margin)
+        .fill()
+    )
+    operator = getattr(PIXMAN, "OP_" + op_name.upper())
+    pixman.image_composite \
+      (
+        op = operator,
+        src = spix,
+        mask = None,
+        dest = dpix,
+        src_pos = (0, 0),
+        mask_pos = None,
+        dest_pos = (0, 0),
+        dimensions = draw_bounds.dimensions
+      )
+    g.matrix = draw_bounds.transform_to(dest_rect)
+    g.set_source_surface \
+      (
+        surface = dpix.create_cairo_surface(),
+        origin = (0, 0)
+      )
+    g.rectangle(draw_bounds)
+    g.fill()
+    g.scaled_font = use_font
+    text_extents = g.text_extents(op_name)
+    max_text_width = draw_bounds.width * 0.9
+    if text_extents.width > max_text_width :
+        hor_size = font_size * max_text_width / text_extents.width
+        text_extents.width = max_text_width
+    else :
+        hor_size = font_size
+    #end if
+    g.font_matrix = qah.Matrix.scale((hor_size, font_size))
+    g.move_to \
+      ((
+        draw_bounds.middle.x - text_extents.width / 2,
+        major_dim + text_extents.y_bearing + text_height * 2
+      ))
+    g.operator = CAIRO.OPERATOR_SOURCE
+    g.source_colour = text_colour
+    g.show_text(op_name)
+    if operator in unbounded :
+        g.rectangle(draw_bounds.inset((2, 2)))
+        g.stroke()
+    #end if
+    col += 1
+    if col == nr_cols :
+        row += 1
+        col = 0
+    #end if
+#end for
+cpix.flush()
+cpix.write_to_png("%s.png" % os.path.basename(sys.argv[0]))
