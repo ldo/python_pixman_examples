@@ -77,7 +77,7 @@ def make_bokeh_filter(radius, nr_points, power, gain, peak, clip_peak) :
     def func(x, y) :
         angle = math.atan2(y, x) / qah.circle * nr_points * math.pi
         return \
-            math.exp(- x * x - y * y) * abs(math.sin(angle)) ** power
+            math.exp(- x * x - y * y) * abs(math.cos(angle)) ** power
     #end func
 
     return \
