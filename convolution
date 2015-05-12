@@ -127,6 +127,12 @@ filters = \
         ("Horizontal Blur", make_gaussian_filter((25, 5))),
         ("Uniform Blur", make_gaussian_filter((25, 25))),
         ("Halo", make_gaussian_filter((25, 25), gain = 2, peak = 1, clip_peak = False)),
+        ("Tri Bokeh",
+            make_bokeh_filter
+              (
+                radius = 15, nr_points = 3, power = 20, gain = 2, peak = 1, clip_peak = False
+              )
+        ),
         ("Quad Bokeh",
             make_bokeh_filter
               (
