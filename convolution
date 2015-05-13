@@ -149,6 +149,41 @@ def make_blurred_ghost_filter(repeats) :
         result
 #end make_blurred_ghost_filter
 
+def make_streak_filter(direction, length, power, falloff, gain) :
+    "constructs a filter that produces a streak with the specified direction and length." \
+    " power controls the sharpness of the streak (fading with change of angle from direction)," \
+    " while falloff determines how it fades with distance."
+    radius = qah.Vector.unit(direction) * length
+    radius = qah.Vector \
+      (
+        max(math.ceil(abs(radius.x)), 1),
+        max(math.ceil(abs(radius.y)), 1)
+      )
+    def func(x, y) :
+        x, y = qah.Vector.from_tuple((- x, - y)) * radius
+        angle = math.atan2(y, x) - direction
+        if abs(angle) < qah.circle / 8 :
+            try :
+                dist_factor = abs(qah.Vector(x, y)) ** - falloff
+            except ZeroDivisionError :
+                dist_factor = 1
+            #end try
+            result = dist_factor * abs(math.cos(angle)) ** power
+        else :
+            result = 0
+        #end if
+        return \
+            result
+    #end func
+    return \
+        pixman.Filter.create_convolution_from_function \
+          (
+            func = func,
+            radius = radius,
+            gain = gain
+          )
+#end make_streak_filter
+
 #+
 # Mainline
 #-
@@ -180,6 +215,7 @@ filters = \
         ),
         ("Ghosts 1", make_ghost_filter([((0, 0), 1), ((7, 5), 0.5), ((14, 10), 0.25)])),
         ("Ghosts 2", make_blurred_ghost_filter([((0, 0), 1, 0.005), ((7, 5), 0.5, 0.01), ((14, 10), 0.25, 0.01)])),
+        ("Streak", make_streak_filter(- 0.1 * qah.circle, 100, 25, 1, 2)),
     )
 
 demo_image = qah.ImageSurface.create \
