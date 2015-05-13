@@ -61,7 +61,7 @@ def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak
     return \
         pixman.Filter.create_convolution_from_function \
           (
-            func = lambda x, y : math.exp(- (x * x + y * y) / radius),
+            func = (lambda x, y : x == 0 and y == 0, lambda x, y : math.exp(- (x * x + y * y) / radius))[radius != 0.0],
             radius = limit,
             gain = gain,
             peak = peak,
@@ -99,7 +99,7 @@ def make_ghost_filter(repeats) :
     " of a repeat, relative to the original pixel at (0, 0), and intensity is the" \
     " relative intensity of the ghost (1.0 for the same intensity as the original image).\n" \
     "\n" \
-    "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0)" \
+    "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0, 0)" \
     " tuple in repeats. Otherwise you will only get the ghosts."
     radius = pixman.Point(0, 0)
     for pos, intensity in repeats :
@@ -116,6 +116,38 @@ def make_ghost_filter(repeats) :
     return \
         pixman.Filter.create_convolution(dimensions, coeffs)
 #end make_ghost_filter
+
+def make_blurred_ghost_filter(repeats) :
+    "constructs a filter that produces a “ghosting” effect, where the original image" \
+    " is repeated at one or more offset locations. repeats is a sequence of" \
+    " (position, intensity, blur_radius) tuples, where each position is an integer" \
+    " qahirah.Vector indicating the position of a repeat, relative to the original pixel" \
+    " at (0, 0), intensity is the relative intensity of the ghost (1.0 for the same" \
+    " intensity as the original image), and blur_radius is the amount of blurring to apply" \
+    " to the ghost.\n" \
+    "\n" \
+    "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0, 0)" \
+    " tuple in repeats. Otherwise you will only get the ghosts."
+    radius = pixman.Point(0, 0)
+    for pos, intensity, blur_radius in repeats :
+        pos = pixman.Point.from_tuple(pos).assert_isint()
+          # I don't support fractional coordinates for now
+        radius = pixman.Point(max(radius.x, abs(pos.x)), max(radius.y, abs(pos.y)))
+    #end for
+    dimensions = 2 * radius + pixman.Point(1, 1)
+    result = pixman.Filter.create_convolution(dimensions, [0] * dimensions.x * dimensions.y)
+    for pos, intensity, blur_radius in repeats :
+        pos = radius - qah.Vector.from_tuple(pos).assert_isint()
+        result += make_gaussian_filter \
+          (
+            limit = dimensions,
+            radius = blur_radius,
+            gain = intensity,
+          ).offset(pos).resize(dimensions)
+    #end for
+    return \
+        result
+#end make_blurred_ghost_filter
 
 #+
 # Mainline
@@ -146,7 +178,8 @@ filters = \
                 radius = 15, nr_points = 6, power = 20, gain = 2, peak = 1, clip_peak = False
               )
         ),
-        ("Ghosts", make_ghost_filter([((0, 0), 1), ((7, 5), 0.5), ((14, 10), 0.25)])),
+        ("Ghosts 1", make_ghost_filter([((0, 0), 1), ((7, 5), 0.5), ((14, 10), 0.25)])),
+        ("Ghosts 2", make_blurred_ghost_filter([((0, 0), 1, 0.005), ((7, 5), 0.5, 0.01), ((14, 10), 0.25, 0.01)])),
     )
 
 demo_image = qah.ImageSurface.create \
