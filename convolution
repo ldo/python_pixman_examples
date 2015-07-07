@@ -13,7 +13,8 @@ import os
 import math
 import qahirah as qah
 from qahirah import \
-    CAIRO
+    CAIRO, \
+    Matrix
 import pixman
 from pixman import \
     PIXMAN
@@ -225,11 +226,7 @@ demo_image = qah.ImageSurface.create \
   )
 g = \
     (qah.Context.create(demo_image)
-        .set_matrix
-          (
-            qah.Rect.from_dimensions((1, 1))
-                .transform_to(qah.Rect.from_dimensions(demo_image.dimensions))
-          )
+        .set_matrix(Matrix.scale(demo_image.dimensions))
         .set_source_colour(qah.Colour.grey(0, 1))
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .paint()
@@ -241,11 +238,11 @@ for i in range(nr_dirns) :
         .save()
         .transform
             (
-                qah.Matrix.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
+                Matrix.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
             *
-                qah.Matrix.translate(qah.Vector(1, 1) * 0.65)
+                Matrix.translate(qah.Vector(1, 1) * 0.65)
             *
-                qah.Matrix.scale(qah.Vector(1, 1) / 8)
+                Matrix.scale(qah.Vector(1, 1) / 8)
             )
         .rectangle(qah.Rect(0, 0, 1, 1))
         .fill()
@@ -295,7 +292,7 @@ for i in range(len(filters)) :
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
-    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, qah.Matrix.identity())
+    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, Matrix.identity())
     text_extents = g.text_extents(filter_name)
     g.move_to \
       ((
