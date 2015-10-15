@@ -292,7 +292,7 @@ for i in range(len(filters)) :
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
-    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, Matrix.identity())
+    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, Matrix.identity)
     text_extents = g.text_extents(filter_name)
     g.move_to \
       ((
