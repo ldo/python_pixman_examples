@@ -62,7 +62,11 @@ def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak
     return \
         pixman.Filter.create_convolution_from_function \
           (
-            func = (lambda x, y : x == 0 and y == 0, lambda x, y : math.exp(- (x * x + y * y) / radius))[radius != 0.0],
+            func =
+                (
+                    lambda x, y : x == 0 and y == 0,
+                    lambda x, y : math.exp(- (x * x + y * y) / radius)
+                )[radius != 0.0],
             radius = limit,
             gain = gain,
             peak = peak,
@@ -100,7 +104,7 @@ def make_ghost_filter(repeats) :
     " of a repeat, relative to the original pixel at (0, 0), and intensity is the" \
     " relative intensity of the ghost (1.0 for the same intensity as the original image).\n" \
     "\n" \
-    "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0, 0)" \
+    "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0)" \
     " tuple in repeats. Otherwise you will only get the ghosts."
     radius = pixman.Point(0, 0)
     for pos, intensity in repeats :
@@ -216,7 +220,13 @@ filters = \
               )
         ),
         ("Ghosts 1", make_ghost_filter([((0, 0), 1), ((7, 5), 0.5), ((14, 10), 0.25)])),
-        ("Ghosts 2", make_blurred_ghost_filter([((0, 0), 1, 0.005), ((7, 5), 0.5, 0.01), ((14, 10), 0.25, 0.01)])),
+        (
+            "Ghosts 2",
+            make_blurred_ghost_filter
+              (
+                [((0, 0), 1, 0.005), ((7, 5), 0.5, 0.01), ((14, 10), 0.25, 0.01)]
+              )
+        ),
         ("Streak", make_streak_filter(- 0.1 * qah.circle, 100, 25, 1, 2)),
     )
 
@@ -259,7 +269,12 @@ draw_bounds = qah.Rect.from_dimensions(demo_image.dimensions)
 pix = qah.ImageSurface.create \
   (
     format = CAIRO.FORMAT_ARGB32,
-    dimensions = qah.Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin) + margin + qah.Vector(0, top_extra)
+    dimensions =
+            qah.Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin)
+        +
+            margin
+        +
+            qah.Vector(0, top_extra)
   )
 g = qah.Context.create(pix)
 text_colour = qah.Colour.grey(0, 1)
@@ -280,7 +295,7 @@ row = 0
 for i in range(len(filters)) :
     filter_name, filter_obj = filters[i]
     sys.stderr.write("doing filter %d/%d: %s..." % (i + 1, len(filters), filter_name))
-    sys.stderr.flush()
+    sys.stderr.flush() # show progress as convolutions might take some time
     dest_rect = \
         (
             draw_bounds
