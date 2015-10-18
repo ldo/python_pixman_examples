@@ -195,6 +195,7 @@ filters = \
         ("Vertical Blur", make_gaussian_filter((5, 25))),
         ("Horizontal Blur", make_gaussian_filter((25, 5))),
         ("Uniform Blur", make_gaussian_filter((25, 25))),
+        ("Smear", make_gaussian_filter((25, 25), radius = 8, gain = 2)),
         ("Halo", make_gaussian_filter((25, 25), gain = 2, peak = 1, clip_peak = False)),
         ("Tri Bokeh",
             make_bokeh_filter
