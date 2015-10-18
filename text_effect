@@ -14,6 +14,7 @@ import math
 import qahirah as qah
 from qahirah import \
     CAIRO, \
+    Colour, \
     Matrix, \
     Vector
 import pixman
@@ -47,6 +48,7 @@ def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak
 # Mainline
 #-
 
+image_dimensions = Vector(640, 200)
 demo_font = \
     (qah.Context.create_for_dummy()
         .set_font_face(qah.FontFace.create_for_pattern("URW Palladio L:slant=500"))
@@ -56,27 +58,27 @@ demo_font = \
 demo_image = qah.ImageSurface.create \
   (
     format = CAIRO.FORMAT_ARGB32,
-    dimensions = Vector(640, 200)
+    dimensions = image_dimensions
   )
 demo_draw = qah.Context.create(demo_image)
 demo_pix = \
     (pixman.Image.create_from_cairo_surface(demo_image)
         .set_repeat(PIXMAN.REPEAT_PAD)
     )
-dest_image = demo_image.create_like()
-dest_pix = pixman.Image.create_from_cairo_surface(dest_image)
+composite_image = demo_image.create_like()
+composite_pix = pixman.Image.create_from_cairo_surface(composite_image)
 for \
     colour, filter, dest_pos \
 in \
     (
-        (qah.Colour.grey(0, 1), make_gaussian_filter((5, 5), radius = 8), Vector(5, 5)),
-        (qah.Colour.grey(0, 1), make_gaussian_filter((3, 3), radius = 8), Vector(0, 0)),
-        (qah.Colour.grey(1, 1), make_gaussian_filter((1, 1)), Vector(0, 0)),
+        (Colour.grey(0, 1), make_gaussian_filter((5, 5), radius = 8), Vector(5, 5)),
+        (Colour.grey(0, 1), make_gaussian_filter((3, 3), radius = 8), Vector(0, 0)),
+        (Colour.grey(1, 1), make_gaussian_filter((1, 1)), Vector(0, 0)),
     ) \
 :
     demo_pix.set_filter(filter)
     (demo_draw
-        .set_source_colour(qah.Colour.grey(0, 0))
+        .set_source_colour(Colour.grey(0, 0))
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .paint()
         .set_operator(CAIRO.OPERATOR_OVER)
@@ -91,12 +93,24 @@ in \
         op = PIXMAN.OP_OVER,
         src = demo_pix,
         mask = None,
-        dest = dest_pix,
+        dest = composite_pix,
         src_pos = (0, 0),
         mask_pos = None,
         dest_pos = dest_pos,
-        dimensions = demo_image.dimensions
+        dimensions = image_dimensions
       )
-    dest_image.mark_dirty()
+    composite_image.mark_dirty()
 #end for
+dest_image = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_RGB24,
+    dimensions = image_dimensions
+  )
+(qah.Context.create(dest_image)
+    .set_source_colour(Colour.grey(1, 1))
+    .paint()
+    .set_source_surface(composite_image, (0, 0))
+    .rectangle(qah.Rect.from_dimensions(image_dimensions))
+    .fill()
+)
 dest_image.write_to_png("{}.png".format(os.path.basename(sys.argv[0])))
