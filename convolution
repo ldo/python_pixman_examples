@@ -14,7 +14,9 @@ import math
 import qahirah as qah
 from qahirah import \
     CAIRO, \
-    Matrix
+    Colour, \
+    Matrix, \
+    Vector
 import pixman
 from pixman import \
     PIXMAN
@@ -115,7 +117,7 @@ def make_ghost_filter(repeats) :
     dimensions = 2 * radius + pixman.Point(1, 1)
     coeffs = [0] * dimensions.x * dimensions.y
     for pos, intensity in repeats :
-        pos = radius - qah.Vector.from_tuple(pos).assert_isint()
+        pos = radius - Vector.from_tuple(pos).assert_isint()
         coeffs[pos.y * dimensions.x + pos.x] = intensity
     #end for
     return \
@@ -142,7 +144,7 @@ def make_blurred_ghost_filter(repeats) :
     dimensions = 2 * radius + pixman.Point(1, 1)
     result = pixman.Filter.create_convolution(dimensions, [0] * dimensions.x * dimensions.y)
     for pos, intensity, blur_radius in repeats :
-        pos = radius - qah.Vector.from_tuple(pos).assert_isint()
+        pos = radius - Vector.from_tuple(pos).assert_isint()
         result += make_gaussian_filter \
           (
             limit = dimensions,
@@ -158,18 +160,18 @@ def make_streak_filter(direction, length, power, falloff, gain) :
     "constructs a filter that produces a streak with the specified direction and length." \
     " power controls the sharpness of the streak (fading with change of angle from direction)," \
     " while falloff determines how it fades with distance."
-    radius = qah.Vector.unit(direction) * length
-    radius = qah.Vector \
+    radius = Vector.unit(direction) * length
+    radius = Vector \
       (
         max(math.ceil(abs(radius.x)), 1),
         max(math.ceil(abs(radius.y)), 1)
       )
     def func(x, y) :
-        x, y = qah.Vector.from_tuple((- x, - y)) * radius
+        x, y = Vector.from_tuple((- x, - y)) * radius
         angle = math.atan2(y, x) - direction
         if abs(angle) < qah.circle / 8 :
             try :
-                dist_factor = abs(qah.Vector(x, y)) ** - falloff
+                dist_factor = abs(Vector(x, y)) ** - falloff
             except ZeroDivisionError :
                 dist_factor = 1
             #end try
@@ -238,10 +240,10 @@ demo_image = qah.ImageSurface.create \
 g = \
     (qah.Context.create(demo_image)
         .set_matrix(Matrix.scale(demo_image.dimensions))
-        .set_source_colour(qah.Colour.grey(0, 1))
+        .set_source_colour(Colour.grey(0, 1))
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .paint()
-        .set_source_colour(qah.Colour.grey(1, 1))
+        .set_source_colour(Colour.grey(1, 1))
     )
 nr_dirns = 6
 for i in range(nr_dirns) :
@@ -251,9 +253,9 @@ for i in range(nr_dirns) :
             (
                 Matrix.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
             *
-                Matrix.translate(qah.Vector(1, 1) * 0.65)
+                Matrix.translate(Vector(1, 1) * 0.65)
             *
-                Matrix.scale(qah.Vector(1, 1) / 8)
+                Matrix.scale(Vector(1, 1) / 8)
             )
         .rectangle(qah.Rect(0, 0, 1, 1))
         .fill()
@@ -263,21 +265,21 @@ for i in range(nr_dirns) :
 
 nr_cols = math.ceil(math.sqrt(len(filters)))
 nr_rows = math.ceil(len(filters) / nr_cols)
-margin = qah.Vector(10, 10)
+margin = Vector(10, 10)
 top_extra = 40
 draw_bounds = qah.Rect.from_dimensions(demo_image.dimensions)
 pix = qah.ImageSurface.create \
   (
     format = CAIRO.FORMAT_ARGB32,
     dimensions =
-            qah.Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin)
+            Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin)
         +
             margin
         +
-            qah.Vector(0, top_extra)
+            Vector(0, top_extra)
   )
 g = qah.Context.create(pix)
-text_colour = qah.Colour.grey(0, 1)
+text_colour = Colour.grey(0, 1)
 g.select_font_face("sans-serif", CAIRO.FONT_SLANT_NORMAL, CAIRO.FONT_WEIGHT_BOLD)
 g.set_font_size(24)
 title = "Pixman Convolution Filters"
@@ -300,11 +302,11 @@ for i in range(len(filters)) :
         (
             draw_bounds
         +
-            qah.Vector(col, row) * (draw_bounds.dimensions + margin)
+            Vector(col, row) * (draw_bounds.dimensions + margin)
         +
             margin
         +
-            qah.Vector(0, top_extra)
+            Vector(0, top_extra)
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
