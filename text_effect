@@ -1,0 +1,102 @@
+#!/usr/bin/python3
+#+
+# Pixman example: demonstration of convolution filters on text.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import math
+import qahirah as qah
+from qahirah import \
+    CAIRO, \
+    Matrix, \
+    Vector
+import pixman
+from pixman import \
+    PIXMAN
+
+#+
+# Useful filter function
+#-
+
+def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak = True) :
+    "constructs a Gaussian blur filter. At least, I think this is a Gaussian blur." \
+    " limit is the maximum radius in pixels, and radius is the fraction of limit at" \
+    " which the coefficients fall off to exp(-2)."
+    return \
+        pixman.Filter.create_convolution_from_function \
+          (
+            func =
+                (
+                    lambda x, y : x == 0 and y == 0,
+                    lambda x, y : math.exp(- (x * x + y * y) / radius)
+                )[radius != 0.0],
+            radius = limit,
+            gain = gain,
+            peak = peak,
+            clip_peak = clip_peak
+          )
+#end make_gaussian_filter
+
+#+
+# Mainline
+#-
+
+demo_font = \
+    (qah.Context.create_for_dummy()
+        .set_font_face(qah.FontFace.create_for_pattern("URW Palladio L:slant=500"))
+        .set_font_size(144)
+        .scaled_font
+    )
+demo_image = qah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_ARGB32,
+    dimensions = Vector(640, 200)
+  )
+demo_draw = qah.Context.create(demo_image)
+demo_pix = \
+    (pixman.Image.create_from_cairo_surface(demo_image)
+        .set_repeat(PIXMAN.REPEAT_PAD)
+    )
+dest_image = demo_image.create_like()
+dest_pix = pixman.Image.create_from_cairo_surface(dest_image)
+for \
+    colour, filter, dest_pos \
+in \
+    (
+        (qah.Colour.grey(0, 1), make_gaussian_filter((5, 5), radius = 8), Vector(5, 5)),
+        (qah.Colour.grey(0, 1), make_gaussian_filter((3, 3), radius = 8), Vector(0, 0)),
+        (qah.Colour.grey(1, 1), make_gaussian_filter((1, 1)), Vector(0, 0)),
+    ) \
+:
+    demo_pix.set_filter(filter)
+    (demo_draw
+        .set_source_colour(qah.Colour.grey(0, 0))
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .paint()
+        .set_operator(CAIRO.OPERATOR_OVER)
+        .set_source_colour(colour)
+        .set_scaled_font(demo_font)
+        .move_to((30, 150))
+        .show_text("2B | ¬2B")
+    )
+    demo_image.flush()
+    pixman.image_composite \
+      (
+        op = PIXMAN.OP_OVER,
+        src = demo_pix,
+        mask = None,
+        dest = dest_pix,
+        src_pos = (0, 0),
+        mask_pos = None,
+        dest_pos = dest_pos,
+        dimensions = demo_image.dimensions
+      )
+    dest_image.mark_dirty()
+#end for
+dest_image.write_to_png("{}.png".format(os.path.basename(sys.argv[0])))
