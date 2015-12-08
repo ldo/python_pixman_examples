@@ -1,0 +1,238 @@
+#!/usr/bin/python3
+#+
+# Pixman example: creating a faux-3D effect complete with shadows and highlights.
+#
+# Copyright 2015 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>. This
+# script is licensed CC0
+# <https://creativecommons.org/publicdomain/zero/1.0/>; do with it
+# what you will.
+#-
+
+import sys
+import os
+import math
+import qahirah
+from qahirah import \
+    CAIRO, \
+    Colour, \
+    Matrix, \
+    Path, \
+    Vector
+import pixman
+from pixman import \
+    PIXMAN
+
+#+
+# Miscellaneous useful stuff
+#-
+
+def make_gaussian_filter(limit, radius = 1.0, gain = 1.0, peak = None, clip_peak = True) :
+    "constructs a Gaussian blur filter. At least, I think this is a Gaussian blur." \
+    " limit is the maximum radius in pixels, and radius is the fraction of limit at" \
+    " which the coefficients fall off to exp(-2)."
+    return \
+        pixman.Filter.create_convolution_from_function \
+          (
+            func =
+                (
+                    lambda x, y : x == 0 and y == 0,
+                    lambda x, y : math.exp(- (x * x + y * y) / radius)
+                )[radius != 0.0],
+            radius = limit,
+            gain = gain,
+            peak = peak,
+            clip_peak = clip_peak
+          )
+#end make_gaussian_filter
+
+def make_round_blur_mask(fg_alpha, bg_alpha, mask_radius, blur_radius) :
+    "constructs a circular or elliptical alpha transparency mask which goes from" \
+    " fg_alpha in the centre to bg_alpha at the edges. mask_radius is a Vector" \
+    " specifying the horizontal and vertical radii of the mask, while blur_radius" \
+    " is a Vector giving the size of the horizontal and vertical blur."
+    mask_radius = Vector.from_tuple(mask_radius)
+    blur_radius = Vector.from_tuple(blur_radius)
+    srcpix = qahirah.ImageSurface.create \
+      (
+        format = CAIRO.FORMAT_A8,
+        dimensions = round(2 * mask_radius)
+      )
+    inner_radius = mask_radius - blur_radius
+    mask_longest = max(tuple(inner_radius))
+    (qahirah.Context.create(srcpix)
+        .set_matrix(Matrix.translate(mask_radius))
+        .set_operator(CAIRO.OPERATOR_SOURCE)
+        .set_source_colour(Colour.grey(0, bg_alpha))
+        .paint()
+        .set_source_colour(Colour.grey(0, fg_alpha))
+        .append_path
+          (
+            Path.create_arc
+              (
+                centre = (0, 0),
+                radius = mask_longest,
+                angle1 = 0,
+                angle2 = qahirah.circle,
+                negative = False
+              ).transform
+                (
+                    Matrix.scale(inner_radius / mask_longest)
+                )
+          )
+        .fill()
+    )
+    maskpix = srcpix.create_like()
+    pixman.image_composite \
+      (
+        op = PIXMAN.OP_SRC,
+        src =
+            pixman.Image.create_from_cairo_surface(srcpix)
+                .set_filter
+                  (
+                    make_gaussian_filter(limit = blur_radius, radius = abs(blur_radius))
+                  )
+                .set_repeat(PIXMAN.REPEAT_PAD),
+        mask = None,
+        dest = pixman.Image.create_from_cairo_surface(maskpix),
+        src_pos = (0, 0),
+        mask_pos = None,
+        dest_pos = (0, 0),
+        dimensions = srcpix.dimensions
+      )
+    maskpix.mark_dirty()
+    return \
+        maskpix
+#end make_round_blur_mask
+
+def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
+    "draws the current source pattern of the Context ctx into it via a blur mask" \
+    " centred at the Vector centre and constructed by calling make_round_blur_mask" \
+    " with the given settings."
+    mask_radius = Vector.from_tuple(mask_radius)
+    (ctx
+        .mask
+          (
+            qahirah.Pattern.create_for_surface
+              (
+                make_round_blur_mask
+                  (
+                    fg_alpha = fg_alpha,
+                    bg_alpha = bg_alpha,
+                    mask_radius = mask_radius,
+                    blur_radius = blur_radius
+                  )
+              )
+                .set_extend(CAIRO.EXTEND_PAD)
+                .set_matrix(Matrix.translate(mask_radius - centre))
+          )
+    )
+#end draw_blur
+
+#+
+# Mainline
+#-
+
+pix = qahirah.ImageSurface.create \
+  (
+    format = CAIRO.FORMAT_RGB24,
+    dimensions = (300, 300)
+  )
+ctx = qahirah.Context.create(pix)
+hue = 0.6
+ball = \
+    Path.create_arc \
+      (
+        centre = pix.dimensions / 2,
+        radius = 100,
+        angle1 = 0,
+        angle2 = qahirah.circle,
+        negative = False
+      )
+ball_main_colour = Colour.from_hsva((hue, 1, 1))
+(ctx
+    .set_source_colour(Colour.grey(1, 1))
+    .paint()
+)
+# shadow:
+ctx.set_source_colour(Colour.from_hsva((hue, 1, 0.7)))
+draw_blur \
+  (
+    ctx = ctx,
+    fg_alpha = 1,
+    bg_alpha = 0,
+    centre = pix.dimensions / 2 + Vector(0, 80),
+    mask_radius = (130, 70),
+    blur_radius = (25, 25)
+  )
+# main part of ball:
+(ctx
+    .save()
+    .append_path(ball)
+    .clip()
+    .paint()
+)
+(ctx
+    .set_source_colour(ball_main_colour)
+)
+draw_blur \
+  (
+    ctx = ctx,
+    fg_alpha = 1,
+    bg_alpha = 0,
+    centre = pix.dimensions / 2,
+    mask_radius = (110, 110),
+    blur_radius = (20, 20)
+  )
+# lower (refraction) highlight:
+ctx.set_source_colour(Colour.from_hsva((hue, 0.6, 1)))
+draw_blur \
+  (
+    ctx = ctx,
+    fg_alpha = 1,
+    bg_alpha = 0,
+    centre = pix.dimensions / 2 + Vector(0, 60),
+    mask_radius = (100, 100),
+    blur_radius = (40, 40)
+  )
+ctx.restore()
+# upper (reflection) highlight:
+(ctx
+    .save()
+    .append_path
+      (
+        Path.create_arc
+          (
+            centre = (0, 0),
+            radius = 50,
+            angle1 = 0,
+            angle2 = qahirah.circle,
+            negative = False
+          ).transform
+            (
+                    Matrix.translate(pix.dimensions / 2 - Vector(0, 70))
+                *
+                    Matrix.scale((1, 0.5))
+            )
+      )
+    .clip()
+    .set_source
+      (
+        qahirah.Pattern.create_linear
+          (
+            p0 = (0, 0),
+            p1 = (0, 60),
+            colour_stops =
+                (
+                    (0, Colour.grey(1, 1)),
+                    (0.75, ball_main_colour.replace_hsva(a = 0.25)),
+                    (1, ball_main_colour.replace_hsva(a = 0)),
+                )
+          ).set_matrix
+            (
+                Matrix.translate(- Vector(0, 60))
+            )
+      )
+    .paint()
+    .restore()
+)
+pix.write_to_png("{}.png".format(os.path.basename(sys.argv[0])))
