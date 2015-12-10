@@ -108,8 +108,11 @@ def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
     "draws the current source pattern of the Context ctx into it via a blur mask" \
     " centred at the Vector centre and constructed by calling make_round_blur_mask" \
     " with the given settings."
-    mask_radius = Vector.from_tuple(mask_radius)
     centre = Vector.from_tuple(centre)
+    mask_radius = Vector.from_tuple(mask_radius)
+    blur_radius = Vector.from_tuple(blur_radius)
+    scaling = Matrix.scale(ctx.user_to_device_distance((1, 1)))
+      # scaling component of ctx.matrix, to get correct target resolution
     (ctx
         .mask
           (
@@ -119,14 +122,14 @@ def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
                   (
                     fg_alpha = fg_alpha,
                     bg_alpha = bg_alpha,
-                    mask_radius = ctx.user_to_device_distance(mask_radius),
-                    blur_radius = ctx.user_to_device_distance(blur_radius)
+                    mask_radius = scaling * mask_radius,
+                    blur_radius = scaling * blur_radius
                   )
               )
                 .set_extend(CAIRO.EXTEND_PAD)
                 .set_matrix
                   (
-                        Matrix.scale(ctx.user_to_device_distance((1, 1)))
+                        scaling
                     *
                         Matrix.translate(mask_radius - centre)
                   )
