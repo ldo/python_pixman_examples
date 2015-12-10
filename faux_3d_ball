@@ -109,6 +109,7 @@ def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
     " centred at the Vector centre and constructed by calling make_round_blur_mask" \
     " with the given settings."
     mask_radius = Vector.from_tuple(mask_radius)
+    centre = Vector.from_tuple(centre)
     (ctx
         .mask
           (
@@ -118,12 +119,17 @@ def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
                   (
                     fg_alpha = fg_alpha,
                     bg_alpha = bg_alpha,
-                    mask_radius = mask_radius,
-                    blur_radius = blur_radius
+                    mask_radius = ctx.user_to_device_distance(mask_radius),
+                    blur_radius = ctx.user_to_device_distance(blur_radius)
                   )
               )
                 .set_extend(CAIRO.EXTEND_PAD)
-                .set_matrix(Matrix.translate(mask_radius - centre))
+                .set_matrix
+                  (
+                        Matrix.scale(ctx.user_to_device_distance((1, 1)))
+                    *
+                        Matrix.translate(mask_radius - centre)
+                  )
           )
     )
 #end draw_blur
@@ -132,18 +138,24 @@ def draw_blur(ctx, fg_alpha, bg_alpha, centre, mask_radius, blur_radius) :
 # Mainline
 #-
 
+size = 300
+  # dimensions in pixels of image. Can make it bigger, but it will be slower.
+  # Note all remaining calculations are resolution-independent.
 pix = qahirah.ImageSurface.create \
   (
     format = CAIRO.FORMAT_RGB24,
-    dimensions = (300, 300)
+    dimensions = Vector(1, 1) * size
   )
-ctx = qahirah.Context.create(pix)
+ctx = \
+    (qahirah.Context.create(pix)
+        .scale(pix.dimensions)
+    )
 hue = 0.6
 ball = \
     Path.create_arc \
       (
-        centre = pix.dimensions / 2,
-        radius = 100,
+        centre = (0.5, 0.5),
+        radius = 1 / 3,
         angle1 = 0,
         angle2 = qahirah.circle,
         negative = False
@@ -160,9 +172,9 @@ draw_blur \
     ctx = ctx,
     fg_alpha = 1,
     bg_alpha = 0,
-    centre = pix.dimensions / 2 + Vector(0, 80),
-    mask_radius = (130, 70),
-    blur_radius = (25, 25)
+    centre = (0.5, 0.77),
+    mask_radius = (0.43, 0.23),
+    blur_radius = Vector(1, 1) / 12
   )
 # main part of ball:
 (ctx
@@ -179,9 +191,9 @@ draw_blur \
     ctx = ctx,
     fg_alpha = 1,
     bg_alpha = 0,
-    centre = pix.dimensions / 2,
-    mask_radius = (110, 110),
-    blur_radius = (20, 20)
+    centre = (0.5, 0.5),
+    mask_radius = (0.37, 0.37),
+    blur_radius = Vector(1, 1) / 15
   )
 # lower (refraction) highlight:
 ctx.set_source_colour(Colour.from_hsva((hue, 0.6, 1)))
@@ -190,9 +202,9 @@ draw_blur \
     ctx = ctx,
     fg_alpha = 1,
     bg_alpha = 0,
-    centre = pix.dimensions / 2 + Vector(0, 60),
-    mask_radius = (100, 100),
-    blur_radius = (40, 40)
+    centre = (0.5, 0.7),
+    mask_radius = Vector(1, 1) / 3,
+    blur_radius = (0.13, 0.13)
   )
 ctx.restore()
 # upper (reflection) highlight:
@@ -203,13 +215,13 @@ ctx.restore()
         Path.create_arc
           (
             centre = (0, 0),
-            radius = 50,
+            radius = 0.167,
             angle1 = 0,
             angle2 = qahirah.circle,
             negative = False
           ).transform
             (
-                    Matrix.translate(pix.dimensions / 2 - Vector(0, 70))
+                    Matrix.translate((0.5, 0.27))
                 *
                     Matrix.scale((1, 0.5))
             )
@@ -220,7 +232,7 @@ ctx.restore()
         qahirah.Pattern.create_linear
           (
             p0 = (0, 0),
-            p1 = (0, 60),
+            p1 = (0, 0.2),
             colour_stops =
                 (
                     (0, Colour.grey(1, 1)),
@@ -229,7 +241,7 @@ ctx.restore()
                 )
           ).set_matrix
             (
-                Matrix.translate(- Vector(0, 60))
+                Matrix.translate((0, - 0.2))
             )
       )
     .paint()
