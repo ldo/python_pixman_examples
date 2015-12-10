@@ -166,6 +166,7 @@ ball_main_colour = Colour.from_hsva((hue, 1, 1))
     .paint()
 )
 # shadow:
+sys.stderr.write("shadow..."); sys.stderr.flush()
 ctx.set_source_colour(Colour.from_hsva((hue, 1, 0.7)))
 draw_blur \
   (
@@ -177,6 +178,7 @@ draw_blur \
     blur_radius = Vector(1, 1) / 12
   )
 # main part of ball:
+sys.stderr.write("ball..."); sys.stderr.flush()
 (ctx
     .save()
     .append_path(ball)
@@ -196,6 +198,7 @@ draw_blur \
     blur_radius = Vector(1, 1) / 15
   )
 # lower (refraction) highlight:
+sys.stderr.write("refraction..."); sys.stderr.flush()
 ctx.set_source_colour(Colour.from_hsva((hue, 0.6, 1)))
 draw_blur \
   (
@@ -208,6 +211,7 @@ draw_blur \
   )
 ctx.restore()
 # upper (reflection) highlight:
+sys.stderr.write("reflection..."); sys.stderr.flush()
 (ctx
     .save()
     .append_path
@@ -247,4 +251,6 @@ ctx.restore()
     .paint()
     .restore()
 )
+sys.stderr.write("output..."); sys.stderr.flush()
 pix.write_to_png("{}.png".format(os.path.basename(sys.argv[0])))
+sys.stderr.write("done.\n"); sys.stderr.flush()
