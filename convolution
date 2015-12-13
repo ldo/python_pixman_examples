@@ -13,13 +13,13 @@ import os
 import math
 import qahirah as qah
 from qahirah import \
-    CAIRO, \
-    Colour, \
-    Matrix, \
-    Vector
+    CAIRO
 import pixman
 from pixman import \
-    PIXMAN
+    PIXMAN, \
+    Colour, \
+    Point, \
+    Transform
 
 #+
 # Miscellaneous useful stuff
@@ -28,7 +28,7 @@ from pixman import \
 def draw_filtered(g, surf, filter, repeat, matrix) :
     "draws the qahirah.ImageSurface surf into the qahirah.Context g, applying" \
     " the pixman.Filter filter, the specified PIXMAN.REPEAT_xxx repeat setting," \
-    " and the qahirah.Matrix matrix."
+    " and the pixman.Transform matrix."
     temp = surf.create_like()
     pixman.image_composite \
       (
@@ -102,22 +102,22 @@ def make_bokeh_filter(radius, nr_points, power, gain, peak, clip_peak) :
 def make_ghost_filter(repeats) :
     "constructs a filter that produces a “ghosting” effect, where the original image" \
     " is repeated at one or more offset locations. repeats is a sequence of (position, intensity)" \
-    " tuples, where each position is an integer qahirah.Vector indicating the position" \
+    " tuples, where each position is an integer pixman.Point indicating the position" \
     " of a repeat, relative to the original pixel at (0, 0), and intensity is the" \
     " relative intensity of the ghost (1.0 for the same intensity as the original image).\n" \
     "\n" \
     "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0)" \
     " tuple in repeats. Otherwise you will only get the ghosts."
-    radius = pixman.Point(0, 0)
+    radius = Point(0, 0)
     for pos, intensity in repeats :
-        pos = pixman.Point.from_tuple(pos).assert_isint()
+        pos = Point.from_tuple(pos).assert_isint()
           # I don't support fractional coordinates for now
-        radius = pixman.Point(max(radius.x, abs(pos.x)), max(radius.y, abs(pos.y)))
+        radius = Point(max(radius.x, abs(pos.x)), max(radius.y, abs(pos.y)))
     #end for
-    dimensions = 2 * radius + pixman.Point(1, 1)
+    dimensions = 2 * radius + Point(1, 1)
     coeffs = [0] * dimensions.x * dimensions.y
     for pos, intensity in repeats :
-        pos = radius - Vector.from_tuple(pos).assert_isint()
+        pos = radius - Point.from_tuple(pos).assert_isint()
         coeffs[pos.y * dimensions.x + pos.x] = intensity
     #end for
     return \
@@ -128,23 +128,23 @@ def make_blurred_ghost_filter(repeats) :
     "constructs a filter that produces a “ghosting” effect, where the original image" \
     " is repeated at one or more offset locations. repeats is a sequence of" \
     " (position, intensity, blur_radius) tuples, where each position is an integer" \
-    " qahirah.Vector indicating the position of a repeat, relative to the original pixel" \
+    " pixman.Point indicating the position of a repeat, relative to the original pixel" \
     " at (0, 0), intensity is the relative intensity of the ghost (1.0 for the same" \
     " intensity as the original image), and blur_radius is the amount of blurring to apply" \
     " to the ghost.\n" \
     "\n" \
     "If you want the original image to appear, then don’t forget to include a ((0, 0), 1.0, 0)" \
     " tuple in repeats. Otherwise you will only get the ghosts."
-    radius = pixman.Point(0, 0)
+    radius = Point(0, 0)
     for pos, intensity, blur_radius in repeats :
-        pos = pixman.Point.from_tuple(pos).assert_isint()
+        pos = Point.from_tuple(pos).assert_isint()
           # I don't support fractional coordinates for now
-        radius = pixman.Point(max(radius.x, abs(pos.x)), max(radius.y, abs(pos.y)))
+        radius = Point(max(radius.x, abs(pos.x)), max(radius.y, abs(pos.y)))
     #end for
-    dimensions = 2 * radius + pixman.Point(1, 1)
+    dimensions = 2 * radius + Point(1, 1)
     result = pixman.Filter.create_convolution(dimensions, [0] * dimensions.x * dimensions.y)
     for pos, intensity, blur_radius in repeats :
-        pos = radius - Vector.from_tuple(pos).assert_isint()
+        pos = radius - Point.from_tuple(pos).assert_isint()
         result += make_gaussian_filter \
           (
             limit = dimensions,
@@ -160,18 +160,18 @@ def make_streak_filter(direction, length, power, falloff, gain) :
     "constructs a filter that produces a streak with the specified direction and length." \
     " power controls the sharpness of the streak (fading with change of angle from direction)," \
     " while falloff determines how it fades with distance."
-    radius = Vector.unit(direction) * length
-    radius = Vector \
+    radius = Point.unit(direction) * length
+    radius = Point \
       (
         max(math.ceil(abs(radius.x)), 1),
         max(math.ceil(abs(radius.y)), 1)
       )
     def func(x, y) :
-        x, y = Vector.from_tuple((- x, - y)) * radius
+        x, y = Point.from_tuple((- x, - y)) * radius
         angle = math.atan2(y, x) - direction
         if abs(angle) < qah.circle / 8 :
             try :
-                dist_factor = abs(Vector(x, y)) ** - falloff
+                dist_factor = abs(Point(x, y)) ** - falloff
             except ZeroDivisionError :
                 dist_factor = 1
             #end try
@@ -239,7 +239,7 @@ demo_image = qah.ImageSurface.create \
   )
 g = \
     (qah.Context.create(demo_image)
-        .set_matrix(Matrix.scale(demo_image.dimensions))
+        .set_matrix(Transform.scale(demo_image.dimensions))
         .set_source_colour(Colour.grey(0, 1))
         .set_operator(CAIRO.OPERATOR_SOURCE)
         .paint()
@@ -251,11 +251,11 @@ for i in range(nr_dirns) :
         .save()
         .transform
             (
-                Matrix.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
+                Transform.rotate(i / nr_dirns * qah.circle, (0.5, 0.5))
             *
-                Matrix.translate(Vector(1, 1) * 0.65)
+                Transform.translate(Point(1, 1) * 0.65)
             *
-                Matrix.scale(Vector(1, 1) / 8)
+                Transform.scale(Point(1, 1) / 8)
             )
         .rectangle(qah.Rect(0, 0, 1, 1))
         .fill()
@@ -265,18 +265,18 @@ for i in range(nr_dirns) :
 
 nr_cols = math.ceil(math.sqrt(len(filters)))
 nr_rows = math.ceil(len(filters) / nr_cols)
-margin = Vector(10, 10)
+margin = Point(10, 10)
 top_extra = 40
 draw_bounds = qah.Rect.from_dimensions(demo_image.dimensions)
 pix = qah.ImageSurface.create \
   (
     format = CAIRO.FORMAT_ARGB32,
     dimensions =
-            Vector(nr_cols, nr_rows) * (draw_bounds.dimensions + margin)
+            Point(nr_cols, nr_rows) * (draw_bounds.dimensions + margin)
         +
             margin
         +
-            Vector(0, top_extra)
+            Point(0, top_extra)
   )
 g = qah.Context.create(pix)
 g.select_font_face("sans-serif", CAIRO.FONT_SLANT_NORMAL, CAIRO.FONT_WEIGHT_BOLD)
@@ -301,15 +301,15 @@ for i in range(len(filters)) :
         (
             draw_bounds
         +
-            Vector(col, row) * (draw_bounds.dimensions + margin)
+            Point(col, row) * (draw_bounds.dimensions + margin)
         +
             margin
         +
-            Vector(0, top_extra)
+            Point(0, top_extra)
         )
     g.matrix = draw_bounds.transform_to(dest_rect)
     g.operator = CAIRO.OPERATOR_SOURCE
-    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, Matrix.identity)
+    draw_filtered(g, demo_image, filter_obj, PIXMAN.REPEAT_PAD, Transform.identity)
     text_extents = g.text_extents(filter_name)
     g.move_to \
       ((
