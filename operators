@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #+
 # Demo of Pixman operators, reworking of Cairo version from
+# <https://gitlab.com/ldo/qahirah_examples/blob/master/operators>,
 # <https://github.com/ldo/qahirah_examples/blob/master/operators>.
 # For an explanation of the difference between disjoint and conjoint
 # operators, see <http://marc.info/?l=xfree-render&m=99792000027857&w=2>,

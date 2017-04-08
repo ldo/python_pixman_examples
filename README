@@ -1,12 +1,12 @@
-Here are some examples of the use of my
-[Python binding](https://github.com/ldo/python_pixman) for the Pixman
-pixel-manipulation library. You will need to have both that and
-[Qahirah](https://github.com/ldo/qahirah), my Python binding for Cairo
-graphics, installed before you can run these.
+Here are some examples of the use of my Python binding
+([GitLab](https://gitlab.com/ldo/python_pixman),
+[GitHub](https://github.com/ldo/python_pixman)) for the Pixman pixel-manipulation library.
+You will need to have both that and Qahirah ([GitLab](https://gitlab.com/ldo/qahirah),
+[GitHub](https://github.com/ldo/qahirah)), my Python binding for Cairo graphics, installed
+before you can run these.
 
-Each example script generates its output to a PNG file with the same
-basename as the script. Thus, to run a script *script* and see its
-output, you could do something like
+Each example script generates its output to a PNG file with the same basename as the
+script. Thus, to run a script *script* and see its output, you could do something like
 
 > ./*script* && display *script*.png
 
@@ -14,4 +14,4 @@ Alternatively, you can see the generated output on my [DeviantArt
 account](http://default-cube.deviantart.com/gallery/54316106/Python-Pixman-Examples).
 
 Lawrence D'Oliveiro <ldo@geek-central.gen.nz>
-2015 May 12.
+2017 April 9
