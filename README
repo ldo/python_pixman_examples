@@ -11,7 +11,7 @@ script. Thus, to run a script *script* and see its output, you could do somethin
 > ./*script* && display *script*.png
 
 Alternatively, you can see the generated output on my [DeviantArt
-account](http://default-cube.deviantart.com/gallery/54316106/Python-Pixman-Examples).
+account](https://default-cube.deviantart.com/gallery/54316106/Python-Pixman-Examples).
 
 Lawrence D'Oliveiro <ldo@geek-central.gen.nz>
-2017 April 9
+2019 April 14
