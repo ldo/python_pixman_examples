@@ -2,7 +2,7 @@
 #+
 # Demo of Pixman operators, reworking of Cairo version from
 # <https://gitlab.com/ldo/qahirah_examples/blob/master/operators>,
-# <https://github.com/ldo/qahirah_examples/blob/master/operators>.
+# <https://bitbucket.org/ldo17/qahirah_examples/src/master/operators>.
 # For an explanation of the difference between disjoint and conjoint
 # operators, see <http://marc.info/?l=xfree-render&m=99792000027857&w=2>,
 # and the Pixman source file pixman/pixman-combine32.c.
